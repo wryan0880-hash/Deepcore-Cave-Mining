@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0e131c" />
+    <title>Deepcore — Cave Mining Company</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark">✦</span><span>DEEPCORE</span><small>MINING CO.</small></div>
+        <div class="ticker"><span class="status-dot"></span><span id="tickerText">Cave systems stable</span></div>
+        <div class="top-actions"><button class="icon-button" id="soundButton" aria-label="Toggle sound">◒</button><button class="icon-button" id="resetButton" aria-label="Reset game">↺</button></div>
+      </header>
+
+      <section class="dashboard">
+        <aside class="sidebar panel">
+          <div class="profile-block"><div class="avatar">JD</div><div><strong>JUNE DANNER</strong><span>Rookie prospector</span></div></div>
+          <div class="stats-list">
+            <div class="stat"><span>Cash balance</span><strong id="cashValue">$120</strong></div>
+            <div class="stat"><span>Depth record</span><strong id="depthValue">12 m</strong></div>
+            <div class="stat"><span>Ore storage</span><strong><span id="storageValue">0</span> / <span id="storageMax">12</span> kg</strong></div>
+          </div>
+          <div class="objective"><span class="eyebrow">CURRENT OBJECTIVE</span><strong id="objectiveText">Mine 3 kg of ore</strong><div class="objective-bar"><i id="objectiveBar"></i></div><small id="objectiveProgress">0 / 3 kg</small></div>
+          <nav class="nav-tabs" aria-label="Game areas"><button class="nav-tab active" data-view="mine"><span>⌁</span> Mine</button><button class="nav-tab" data-view="shop"><span>▣</span> Shop</button><button class="nav-tab" data-view="log"><span>≡</span> Field log</button></nav>
+          <div class="sidebar-footer"><span class="signal"><i></i><i></i><i></i></span><span>Beacon connected</span></div>
+        </aside>
+
+        <section class="content">
+          <div class="view" id="mineView">
+            <div class="page-heading"><div><span class="eyebrow" id="caveSector">ACTIVE SITE / SECTOR 04</span><h1 id="caveTitle">THE HOLLOW VEIN</h1><p id="caveSubtitle">Extract the good stuff. Leave the cave standing.</p></div><div class="depth-readout"><span>DEPTH</span><strong id="depthReadout">12</strong><small>METERS</small></div></div>
+            <div class="cave-picker" id="cavePicker" aria-label="Cave network"></div>
+            <div class="mine-layout">
+              <div class="cave-card panel">
+                <div class="cave-toolbar"><span><i class="live-dot"></i> LIVE SURVEY</span><span><span id="regenReadout">VEINS REGEN 30s</span> · <span id="vehicleReadout">ON FOOT</span></span></div>
+                <div class="cave-scene" id="caveScene" aria-label="Mine cave with ore nodes">
+                  <div class="cave-grid"></div><div class="stalactites"></div><div class="cave-floor"></div><div class="miner"><span class="headlamp"></span><span class="body"></span><span class="pickaxe">╱</span></div>
+                  <button class="ore-node copper node-a" data-ore="copper" style="--x: 19%; --y: 38%" aria-label="Mine copper ore">◈<span>copper</span></button>
+                  <button class="ore-node quartz node-b" data-ore="quartz" style="--x: 49%; --y: 25%" aria-label="Mine quartz ore">✦<span>quartz</span></button>
+                  <button class="ore-node iron node-c" data-ore="iron" style="--x: 77%; --y: 49%" aria-label="Mine iron ore">◆<span>iron</span></button>
+                  <div class="scanline"></div><div class="cave-depth-label">SURVEY RANGE <strong>04–18 m</strong></div>
+                </div>
+                <div class="cave-footer"><div><span class="eyebrow">EQUIPPED TOOL</span><strong id="toolName">Rusty pickaxe</strong><small id="toolPower">Power 1 · 1 kg / swing</small></div><button class="primary-button" id="mineButton">MINE ORE <span>SPACE</span></button></div>
+              </div>
+              <div class="haul-card panel"><div class="card-heading"><div><span class="eyebrow">CURRENT HAUL</span><h2>Ore basket</h2></div><span class="capacity-ring" id="capacityRing">0%</span></div><div class="haul-list" id="haulList"></div><div class="haul-total"><span>Estimated value</span><strong id="haulValue">$0</strong></div><button class="secondary-button full" id="sellButton">SELL HAUL AT SURFACE</button><p class="hint">Return to the surface to sell your haul and restock your energy.</p></div>
+            </div>
+            <div class="lower-grid"><div class="panel insight-card"><span class="eyebrow">GEOLOGIST'S NOTE</span><p id="logNote">The copper seam is close to the entrance. A good place to start building capital.</p><span class="note-mark">“</span></div><div class="panel route-card"><div class="card-heading"><div><span class="eyebrow">EXPLORATION ROUTE</span><h2>Hollow vein map</h2></div><span class="map-scale">1 : 400</span></div><div class="route-map"><span class="route-line"></span><span class="map-pin pin-1 active"></span><span class="map-pin pin-2"></span><span class="map-pin pin-3"></span><span class="map-label label-1">Basecamp</span><span class="map-label label-2">Old shaft</span><span class="map-label label-3">Deep pocket</span></div></div></div>
+          </div>
+
+          <div class="view hidden" id="shopView"><div class="page-heading"><div><span class="eyebrow">BASECAMP / SUPPLY DEPOT</span><h1>UPGRADE YOUR RIG</h1><p>Spend smart. Go deeper. Bring more back.</p></div><div class="shop-wallet"><span>AVAILABLE</span><strong id="shopCash">$120</strong></div></div><div class="shop-grid" id="shopGrid"></div></div>
+
+          <div class="view hidden" id="logView"><div class="page-heading"><div><span class="eyebrow">FIELD NOTES / SECTOR 04</span><h1>PROSPECTOR'S LOG</h1><p>A running record of your time underground.</p></div></div><div class="log-card panel" id="logList"></div></div>
+        </section>
+      </section>
+      <div class="mining-overlay hidden" id="miningOverlay" role="dialog" aria-modal="true" aria-labelledby="miniTitle"><div class="minigame panel"><div class="mini-header"><div><span class="eyebrow">EXTRACTION PROTOCOL</span><h2 id="miniTitle">Lock onto the vein</h2><p id="miniHint">Click each signal before it fades.</p></div><button class="icon-button" id="cancelMining" aria-label="Cancel mining">×</button></div><div class="target-zone" id="targetZone"></div><div class="mini-footer"><span id="miniProgress">TARGET 1 / 4</span><span id="miniTimer">1.2s WINDOW</span></div></div></div><div class="toast" id="toast" role="status"></div>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
