@@ -30,11 +30,11 @@ $('cancelMining').addEventListener('click',()=>{closeMiningGame();showToast('Min
 // Four-lane falling-stone extraction game. Difficulty follows the current cave.
 (() => {
   const laneKeys=['d','f','j','k']; let falling=[],frame=0,last=0,spawnAt=0,miniProgress=0,active=false;
-  const level=()=>Math.min(4,state.cave+1), settings=()=>{const rarity=ores[miniGame.key]?.strength||1,rareSpeed=rarity>=3?(rarity-2)*55:0,rareSpawn=rarity>=3?(rarity-2)*120:0;return {speed:105+level()*30+(rarity-1)*34+rareSpeed,spawn:Math.max(280,1150-level()*145-(rarity-1)*165-rareSpawn),window:72}};
+  const level=()=>Math.min(4,state.cave+1), settings=()=>{const rarity=ores[miniGame.key]?.strength||1,rareSpawn=rarity>=3?(rarity-2)*120:0;return {speed:180,spawn:Math.max(280,1150-level()*145-(rarity-1)*165-rareSpawn),window:72}};
   const update=()=>{$('miniProgress').textContent=`PROGRESS ${Math.round(miniProgress)}%`};
   const flash=(lane,cls)=>{lane.classList.remove('mini-hit','mini-miss');void lane.offsetWidth;lane.classList.add(cls)};
   const finish=()=>{active=false;cancelAnimationFrame(frame);falling.forEach(s=>s.el.remove());falling=[];closeMiningGame()};
-  const spawn=()=>{const lane=Math.floor(Math.random()*4),el=document.createElement('span');el.className='falling-stone';el.textContent='◆';$('targetZone').children[lane].querySelector('.lane-track').appendChild(el);falling.push({el,lane,y:-28})};
+  const spawn=()=>{const lane=Math.floor(Math.random()*4),el=document.createElement('span'),oreColor=ores[miniGame.key]?.color||'#f1c16d';el.className='falling-stone';el.style.setProperty('--stone-color',oreColor);el.textContent='◆';$('targetZone').children[lane].querySelector('.lane-track').appendChild(el);falling.push({el,lane,y:-28})};
   function loop(now){if(!active)return;const d=settings(),dt=Math.min(40,now-last);last=now;spawnAt+=dt;if(spawnAt>=d.spawn){spawnAt=0;spawn()}const zoneY=($('targetZone').clientHeight||280)-74;let missed=false;falling=falling.filter(s=>{s.y+=d.speed*dt/1000;s.el.style.transform=`translate(-50%,${s.y}px)`;if(s.y>zoneY+d.window){miniProgress=Math.max(0,miniProgress-6);missed=true;update();flash($('targetZone').children[s.lane],'mini-miss');s.el.remove();return false}return true});if(missed&&miniProgress<=0){$('miniHint').textContent='Extraction failed — the vein was lost.';setTimeout(finish,500);return}if(miniProgress>=100){$('miniHint').textContent='Extraction complete!';setTimeout(()=>{finish();collectOre(miniGame.key)},500);return}frame=requestAnimationFrame(loop)}
   function begin(preferred){if(state.storage>=state.storageMax)return showToast('Basket full — sell your haul at the surface.');const available=Object.keys(ores).filter(k=>state.power>=ores[k].strength&&state.mined[k]<4).sort((a,b)=>ores[b].strength-ores[a].strength),key=preferred||available[0];if(!key)return showToast('No accessible veins remain — upgrade your pickaxe.');miniGame.key=key;miniProgress=0;falling=[];active=true;spawnAt=0;last=performance.now();$('miniTitle').textContent=`Extract ${ores[key].name}`;$('miniHint').textContent='Press D, F, J, or K when a stone reaches its zone.';$('targetZone').innerHTML=laneKeys.map(k=>`<div class="mine-lane" data-key="${k}"><div class="lane-track"><div class="hit-zone"></div><span class="lane-key">${k.toUpperCase()}</span></div></div>`).join('');$('miningOverlay').classList.remove('hidden');update();frame=requestAnimationFrame(loop)}
   function press(key){if(!active)return;const d=settings(),rarity=ores[miniGame.key]?.strength||1,progressPerHit=Math.max(4,14+level()*2-(rarity-1)*3),zoneY=($('targetZone').clientHeight||280)-74,index=laneKeys.indexOf(key),target=falling.filter(s=>s.lane===index).sort((a,b)=>Math.abs(a.y-zoneY)-Math.abs(b.y-zoneY))[0],lane=$('targetZone').children[index];if(target&&Math.abs(target.y-zoneY)<=d.window){target.el.remove();falling=falling.filter(s=>s!==target);miniProgress=Math.min(100,miniProgress+progressPerHit);flash(lane,'mini-hit')}else{miniProgress=Math.max(0,miniProgress-3);flash(lane,'mini-miss')}update()}
@@ -42,6 +42,57 @@ $('cancelMining').addEventListener('click',()=>{closeMiningGame();showToast('Min
 })();
 // Keep the completed mineral key available until collectOre() records the reward.
 closeMiningGame=function(){clearTimeout(miniGame.timer);miniGame.timer=null;$('miningOverlay').classList.add('hidden');$('targetZone').innerHTML=''};
+
+// Let the player rename the prospector from the profile panel.
+state.playerName=state.playerName||'JUNE DANNER';
+function renderPlayerName(){const name=state.playerName.trim()||'JUNE DANNER';$('playerName').textContent=name.toUpperCase();$('playerAvatar').textContent=name.split(/\s+/).map(part=>part[0]).join('').slice(0,2).toUpperCase();}
+renderPlayerName();
+function editPlayerName(){const next=prompt('Enter your prospector name:',state.playerName);if(next&&next.trim()){state.playerName=next.trim().slice(0,24);renderPlayerName();save();showToast(`Name changed to ${state.playerName}.`);}}
+$('playerName').addEventListener('click',editPlayerName);
+$('playerName').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();editPlayerName();}});
+
+// Extend the pickaxe path so the deepest cave can eventually be mined.
+upgrades[0].levels=['Rusty pickaxe','Steel pickaxe','Diamond drill','Titanium breaker','Core splitter','Magma auger','Starforged drill','Void borer','Deepcore extractor'];
+render();
+
+// Small procedural stone sounds for the rhythm minigame.
+let miniAudio;
+function playStoneSound(){
+  const AudioContext=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContext)return;
+  miniAudio=miniAudio||new AudioContext();
+  const now=miniAudio.currentTime,osc=miniAudio.createOscillator(),gain=miniAudio.createGain();
+  osc.type='triangle'; osc.frequency.setValueAtTime(180,now); osc.frequency.exponentialRampToValueAtTime(70,now+0.09);
+  gain.gain.setValueAtTime(0.0001,now); gain.gain.exponentialRampToValueAtTime(0.16,now+0.008); gain.gain.exponentialRampToValueAtTime(0.0001,now+0.11);
+  osc.connect(gain); gain.connect(miniAudio.destination); osc.start(now); osc.stop(now+0.12);
+}
+
+function playStoneSound(){
+  const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
+  miniAudio=miniAudio||new AudioContext();
+  const mineral=ores[miniGame.key],name=(mineral?.name||'').toLowerCase();
+  const crystal=name.includes('void crystal')||name.includes('meteor metal')||name.includes('amethyst');
+  const play=()=>{const now=miniAudio.currentTime,notes=crystal?[660,990]:[260],duration=crystal?.3:.17;notes.forEach((frequency,i)=>{const osc=miniAudio.createOscillator(),gain=miniAudio.createGain();osc.type=crystal?'sine':'square';osc.frequency.setValueAtTime(frequency,now);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(crystal?.2:.32,now+.01);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(miniAudio.destination);osc.start(now+i*.035);osc.stop(now+duration+i*.035)});};
+  if(miniAudio.state==='suspended')miniAudio.resume().then(play);else play();
+}
+
+// Purple ores use a higher, crystalline chime instead of the regular stone hit.
+function playStoneSound(){
+  const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
+  miniAudio=miniAudio||new AudioContext();
+  const mineral=ores[miniGame.key],name=(mineral?.name||'').toLowerCase(),color=(mineral?.color||'').toLowerCase();
+  const purple=name.includes('amethyst')||name.includes('void')||['#c79cff','#d7b2ff','#b78cff'].includes(color);
+  const chime=()=>{const now=miniAudio.currentTime,osc=miniAudio.createOscillator(),gain=miniAudio.createGain();osc.type=purple?'sine':'square';osc.frequency.setValueAtTime(purple?620:260,now);osc.frequency.exponentialRampToValueAtTime(purple?980:85,now+(purple?.22:.14));gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(purple?.22:.32,now+.01);gain.gain.exponentialRampToValueAtTime(.0001,now+(purple?.25:.16));osc.connect(gain);gain.connect(miniAudio.destination);osc.start(now);osc.stop(now+(purple?.26:.17))};
+  if(miniAudio.state==='suspended')miniAudio.resume().then(chime);else chime();
+}
+document.addEventListener('keydown',e=>{if(document.querySelector('#miningOverlay:not(.hidden)')&&['d','f','j','k'].includes(e.key.toLowerCase()))playStoneSound()});
+
+function playStoneSound(){
+  const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
+  miniAudio=miniAudio||new AudioContext();
+  const strike=()=>{const now=miniAudio.currentTime,osc=miniAudio.createOscillator(),gain=miniAudio.createGain();osc.type='square';osc.frequency.setValueAtTime(260,now);osc.frequency.exponentialRampToValueAtTime(85,now+0.14);gain.gain.setValueAtTime(0.0001,now);gain.gain.exponentialRampToValueAtTime(0.32,now+0.01);gain.gain.exponentialRampToValueAtTime(0.0001,now+0.16);osc.connect(gain);gain.connect(miniAudio.destination);osc.start(now);osc.stop(now+0.17)};
+  if(miniAudio.state==='suspended')miniAudio.resume().then(strike);else strike();
+}
 
 // Pay the starter objective once, after the haul reaches 3 kg.
 state.objectivePaid=Boolean(state.objectivePaid);
