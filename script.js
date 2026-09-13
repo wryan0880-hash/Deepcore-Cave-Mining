@@ -26,3 +26,65 @@ function mine(preferred){startMiningGame(preferred)}function regenerateVeins(){c
 document.addEventListener('click',e=>{if(e.target.closest('[data-cave]'))travel(Number(e.target.closest('[data-cave]').dataset.cave));if(e.target.closest('[data-ore]'))mine(e.target.closest('[data-ore]').dataset.ore);if(e.target.closest('[data-upgrade]'))buy(e.target.closest('[data-upgrade]').dataset.upgrade);if(e.target.closest('.nav-tab'))setView(e.target.closest('.nav-tab').dataset.view)});$('mineButton').addEventListener('click',()=>mine());$('sellButton').addEventListener('click',sell);$('resetButton').addEventListener('click',()=>{if(confirm('Reset your mining company?')){localStorage.removeItem('deepcore-save');location.reload()}});document.addEventListener('keydown',e=>{if(e.code==='Space'&&document.querySelector('#mineView:not(.hidden)')&&!document.querySelector('#miningOverlay:not(.hidden)')){e.preventDefault();mine()}});load();render();setInterval(regenerateVeins,1000);
 // The mini-game can be safely cancelled without consuming ore.
 $('cancelMining').addEventListener('click',()=>{closeMiningGame();showToast('Mining cancelled.')});
+
+// Four-lane falling-stone extraction game. Difficulty follows the current cave.
+(() => {
+  const laneKeys=['d','f','j','k']; let falling=[],frame=0,last=0,spawnAt=0,miniProgress=0,active=false;
+  const level=()=>Math.min(4,state.cave+1), settings=()=>{const rarity=ores[miniGame.key]?.strength||1,rareSpeed=rarity>=3?(rarity-2)*55:0,rareSpawn=rarity>=3?(rarity-2)*120:0;return {speed:105+level()*30+(rarity-1)*34+rareSpeed,spawn:Math.max(280,1150-level()*145-(rarity-1)*165-rareSpawn),window:72}};
+  const update=()=>{$('miniProgress').textContent=`PROGRESS ${Math.round(miniProgress)}%`};
+  const flash=(lane,cls)=>{lane.classList.remove('mini-hit','mini-miss');void lane.offsetWidth;lane.classList.add(cls)};
+  const finish=()=>{active=false;cancelAnimationFrame(frame);falling.forEach(s=>s.el.remove());falling=[];closeMiningGame()};
+  const spawn=()=>{const lane=Math.floor(Math.random()*4),el=document.createElement('span');el.className='falling-stone';el.textContent='◆';$('targetZone').children[lane].querySelector('.lane-track').appendChild(el);falling.push({el,lane,y:-28})};
+  function loop(now){if(!active)return;const d=settings(),dt=Math.min(40,now-last);last=now;spawnAt+=dt;if(spawnAt>=d.spawn){spawnAt=0;spawn()}const zoneY=($('targetZone').clientHeight||280)-74;let missed=false;falling=falling.filter(s=>{s.y+=d.speed*dt/1000;s.el.style.transform=`translate(-50%,${s.y}px)`;if(s.y>zoneY+d.window){miniProgress=Math.max(0,miniProgress-6);missed=true;update();flash($('targetZone').children[s.lane],'mini-miss');s.el.remove();return false}return true});if(missed&&miniProgress<=0){$('miniHint').textContent='Extraction failed — the vein was lost.';setTimeout(finish,500);return}if(miniProgress>=100){$('miniHint').textContent='Extraction complete!';setTimeout(()=>{finish();collectOre(miniGame.key)},500);return}frame=requestAnimationFrame(loop)}
+  function begin(preferred){if(state.storage>=state.storageMax)return showToast('Basket full — sell your haul at the surface.');const available=Object.keys(ores).filter(k=>state.power>=ores[k].strength&&state.mined[k]<4).sort((a,b)=>ores[b].strength-ores[a].strength),key=preferred||available[0];if(!key)return showToast('No accessible veins remain — upgrade your pickaxe.');miniGame.key=key;miniProgress=0;falling=[];active=true;spawnAt=0;last=performance.now();$('miniTitle').textContent=`Extract ${ores[key].name}`;$('miniHint').textContent='Press D, F, J, or K when a stone reaches its zone.';$('targetZone').innerHTML=laneKeys.map(k=>`<div class="mine-lane" data-key="${k}"><div class="lane-track"><div class="hit-zone"></div><span class="lane-key">${k.toUpperCase()}</span></div></div>`).join('');$('miningOverlay').classList.remove('hidden');update();frame=requestAnimationFrame(loop)}
+  function press(key){if(!active)return;const d=settings(),rarity=ores[miniGame.key]?.strength||1,progressPerHit=Math.max(4,14+level()*2-(rarity-1)*3),zoneY=($('targetZone').clientHeight||280)-74,index=laneKeys.indexOf(key),target=falling.filter(s=>s.lane===index).sort((a,b)=>Math.abs(a.y-zoneY)-Math.abs(b.y-zoneY))[0],lane=$('targetZone').children[index];if(target&&Math.abs(target.y-zoneY)<=d.window){target.el.remove();falling=falling.filter(s=>s!==target);miniProgress=Math.min(100,miniProgress+progressPerHit);flash(lane,'mini-hit')}else{miniProgress=Math.max(0,miniProgress-3);flash(lane,'mini-miss')}update()}
+  mine=begin; document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(active&&laneKeys.includes(k)){e.preventDefault();press(k)}if(active&&e.key==='Escape')finish()});
+})();
+// Keep the completed mineral key available until collectOre() records the reward.
+closeMiningGame=function(){clearTimeout(miniGame.timer);miniGame.timer=null;$('miningOverlay').classList.add('hidden');$('targetZone').innerHTML=''};
+
+// Pay the starter objective once, after the haul reaches 3 kg.
+state.objectivePaid=Boolean(state.objectivePaid);
+const collectOreWithObjectiveReward=collectOre;
+collectOre=function(key){
+  collectOreWithObjectiveReward(key);
+  const total=Object.values(state.haul).reduce((sum,n)=>sum+n,0);
+  if(total>=3&&!state.objectivePaid){
+    state.objectivePaid=true;
+    state.cash+=250;
+    addLog('Completed the starter objective: mined 3 kg of ore. Bonus received: $250.');
+    showToast('Objective complete — $250 bonus received!');
+    render();
+  }
+};
+
+const miningObjectives=[
+  {goal:3,reward:250,label:'Mine 3 kg of ore'},
+  {goal:7,reward:500,label:'Mine 7 kg of ore'},
+  {goal:12,reward:900,label:'Mine 12 kg of ore'},
+  {goal:18,reward:1500,label:'Mine 18 kg of ore'},
+  {goal:25,reward:2400,label:'Mine 25 kg of ore'}
+];
+state.objectiveIndex=Number.isInteger(state.objectiveIndex)?state.objectiveIndex:(state.objectivePaid?1:0);
+const renderObjectiveProgress=renderObjective;
+renderObjective=function(){
+  const objective=miningObjectives[Math.min(state.objectiveIndex,miningObjectives.length-1)];
+  const total=Object.values(state.haul).reduce((sum,n)=>sum+n,0),progress=Math.min(total,objective.goal);
+  $('objectiveProgress').textContent=`${progress} / ${objective.goal} kg`;
+  $('objectiveBar').style.width=`${progress/objective.goal*100}%`;
+  $('objectiveText').textContent=objective.label;
+};
+const collectOreWithObjectives=collectOre;
+collectOre=function(key){
+  collectOreWithObjectives(key);
+  if(state.objectiveIndex===0&&state.objectivePaid){state.objectiveIndex=1;render();return;}
+  const objective=miningObjectives[state.objectiveIndex],total=Object.values(state.haul).reduce((sum,n)=>sum+n,0);
+  if(objective&&total>=objective.goal){
+    state.cash+=objective.reward;
+    addLog(`Completed objective: ${objective.label}. Bonus received: ${money(objective.reward)}.`);
+    showToast(`${objective.label} complete — ${money(objective.reward)} bonus!`);
+    state.objectiveIndex=Math.min(state.objectiveIndex+1,miningObjectives.length-1);
+    state.objectivePaid=true;
+    render();
+  }
+};
